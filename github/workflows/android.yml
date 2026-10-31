@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Samsung-compatible APK
+    name: Build DREDD Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -25,50 +25,55 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-            - name: Set up Android SDK
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
+          packages: ''
 
       - name: Find source ZIP
+        shell: bash
         run: |
           ZIP_FILE=$(find . -maxdepth 1 -type f -iname 'DREDD_Trading_AI_Android_v02.zip' -print -quit)
+
           if [ -z "$ZIP_FILE" ]; then
-            echo "Source ZIP not found"
+            echo "ERROR: DREDD source ZIP not found."
             ls -la
             exit 1
           fi
+
           echo "ZIP_FILE=$ZIP_FILE" >> "$GITHUB_ENV"
 
       - name: Extract project
+        shell: bash
         run: |
           mkdir -p project
           unzip -q "$ZIP_FILE" -d project
 
       - name: Locate Gradle project
+        shell: bash
         run: |
-          SETTINGS=$(find project -name settings.gradle.kts -o -name settings.gradle | head -n 1)
+          SETTINGS=$(find project -type f \( -name settings.gradle.kts -o -name settings.gradle \) -print -quit)
+
           if [ -z "$SETTINGS" ]; then
-            echo "Gradle settings file not found"
+            echo "ERROR: Gradle settings file not found."
             find project -maxdepth 5 -type f
             exit 1
           fi
+
           PROJECT_DIR=$(dirname "$SETTINGS")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Found project at $PROJECT_DIR"
+
+          echo "Gradle project found at: $PROJECT_DIR"
 
       - name: Build APK
-        run: gradle -p "$PROJECT_DIR" --no-daemon :app:assembleDebug
+        shell: bash
+        run: |
+          gradle -p "$PROJECT_DIR" --no-daemon :app:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: DREDD-Trading-AI-APK
-          path: '**/build/outputs/apk/debug/*.apk'
+          path: project/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 7
