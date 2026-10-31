@@ -1,18 +1,13 @@
 
-name: DREDD Trading AI - CI
+name: DREDD Trading AI Android Build
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
-
-permissions:
-  contents: read
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -28,30 +23,35 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Extract Android project
+        run: |
+          mkdir -p project
+          ZIP=$(find . -maxdepth 2 -name "*.zip" | head -n 1)
+          if [ -n "$ZIP" ]; then
+            unzip -oq "$ZIP" -d project
+          else
+            cp -r ./* project/ 2>/dev/null || true
+          fi
 
-      - name: Set up Gradle
+      - name: Locate Gradle project
+        run: |
+          SETTINGS=$(find project -name settings.gradle.kts -o -name settings.gradle | head -n 1)
+          if [ -z "$SETTINGS" ]; then
+            echo "Gradle settings file not found"
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
+
+      - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Extract Android project
-        run: |
-          mkdir -p project
-          unzip -q DREDD_Trading_AI_Android_v02.zip -d project
-
-      - name: Locate project files
-        run: |
-          find project -name settings.gradle.kts -o -name settings.gradle
-          find project -name build.gradle.kts -o -name build.gradle
-
       - name: Build APK
-        run: gradle -p project :app:assembleDebug
+        run: gradle -p "$PROJECT_DIR" assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: DREDD-Trading-AI-APK
           path: project/**/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
