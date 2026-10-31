@@ -1,0 +1,57 @@
+
+name: DREDD Trading AI - CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Extract Android project
+        run: |
+          mkdir -p project
+          unzip -q DREDD_Trading_AI_Android_v02.zip -d project
+
+      - name: Locate project files
+        run: |
+          find project -name settings.gradle.kts -o -name settings.gradle
+          find project -name build.gradle.kts -o -name build.gradle
+
+      - name: Build APK
+        run: gradle -p project :app:assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DREDD-Trading-AI-APK
+          path: project/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
